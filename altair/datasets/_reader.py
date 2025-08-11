@@ -92,6 +92,14 @@ if TYPE_CHECKING:
         _PySpark,
     )
 
+    EagerImplementation: TypeAlias = Literal[
+        nw.Implementation.PANDAS,
+        nw.Implementation.CUDF,
+        nw.Implementation.MODIN,
+        nw.Implementation.PYARROW,
+        nw.Implementation.POLARS,
+    ]
+
 _SupportProfile: TypeAlias = Mapping[
     Literal["supported", "unsupported"], "Sequence[Dataset]"
 ]
@@ -111,6 +119,16 @@ Instead, they can be loaded via::
 
     alt.Chart(url("7zip"))
 """
+
+
+def is_eager_allowed(obj: nw.Implementation) -> TypeIs[EagerImplementation]:
+    return obj in {
+        nw.Implementation.PANDAS,
+        nw.Implementation.MODIN,
+        nw.Implementation.CUDF,
+        nw.Implementation.POLARS,
+        nw.Implementation.PYARROW,
+    }
 
 
 class Reader(Generic[IntoDataFrameT, IntoFrameT]):
@@ -363,7 +381,11 @@ class _NoParquetReader(Reader[IntoDataFrameT, IntoFrameT]):
     def _metadata_frame(self) -> nw.LazyFrame[IntoFrameT]:
         data = cast("dict[str, Any]", self.csv_cache.rotated)
         impl = self._implementation
-        return nw.maybe_convert_dtypes(nw.from_dict(data, backend=impl)).lazy()
+        if is_eager_allowed(impl):
+            return nw.maybe_convert_dtypes(nw.from_dict(data, backend=impl)).lazy()
+
+        msg = f"Unreachable code, got unexpected implementation: {impl}"
+        raise AssertionError(msg)
 
 
 @overload
@@ -530,7 +552,7 @@ def _import_guarded(req: _NwSupportT, /) -> _NwSupportT: ...
 
 
 @overload
-def _import_guarded(req: Requirement, /) -> LiteralString: ...
+def _import_guarded(req: Requirement, /) -> _NwSupport: ...
 
 
 def _import_guarded(req: Any, /) -> LiteralString:
