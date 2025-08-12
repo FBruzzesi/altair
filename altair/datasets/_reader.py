@@ -121,7 +121,7 @@ Instead, they can be loaded via::
 """
 
 
-def is_eager_allowed(obj: nw.Implementation) -> TypeIs[EagerImplementation]:
+def _is_eager_allowed(obj: nw.Implementation) -> TypeIs[EagerImplementation]:
     return obj in {
         nw.Implementation.PANDAS,
         nw.Implementation.MODIN,
@@ -368,6 +368,13 @@ def _dataset_names(
 
 
 class _NoParquetReader(Reader[IntoDataFrameT, IntoFrameT]):
+    @property
+    def _eager_implementation(self) -> EagerImplementation:
+        if not _is_eager_allowed(self._implementation):
+            msg = f"Got unexpected implementation: {self._implementation}"
+            raise TypeError(msg)
+        return self._implementation
+
     def __repr__(self) -> str:
         return f"{super().__repr__()}\ncsv_cache\n    {self.csv_cache!r}"
 
@@ -380,12 +387,8 @@ class _NoParquetReader(Reader[IntoDataFrameT, IntoFrameT]):
     @property
     def _metadata_frame(self) -> nw.LazyFrame[IntoFrameT]:
         data = cast("dict[str, Any]", self.csv_cache.rotated)
-        impl = self._implementation
-        if is_eager_allowed(impl):
-            return nw.maybe_convert_dtypes(nw.from_dict(data, backend=impl)).lazy()
-
-        msg = f"Unreachable code, got unexpected implementation: {impl}"
-        raise AssertionError(msg)
+        impl = self._eager_implementation
+        return nw.maybe_convert_dtypes(nw.from_dict(data, backend=impl)).lazy()
 
 
 @overload
