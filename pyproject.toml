@@ -111,7 +111,7 @@ geospatial = [
 
 [tool.altair.vega]
 # Minimum/exact versions, for projects under the `vega` organization
-vega-datasets     = "v3.2.0" # https://github.com/vega/vega-datasets
+vega-datasets     = "v3.2.1" # https://github.com/vega/vega-datasets
 vega-embed        = "v7"       # https://github.com/vega/vega-embed
 vega-lite         = "v6.1.0" # https://github.com/vega/vega-lite
 
@@ -300,6 +300,9 @@ doc-publish-clean-build = "task doc-clean-build && task doc-publish"
 clean   = "python -c \"import tools;tools.fs.rm('dist')\""
 build   = "task clean && uv build"
 publish = "task build && uv publish"
+
+nightly-build = "python tools/generate_nightly_version.py --update && task build"
+nightly-release = "task nightly-build && echo 'Package built, ready for GitHub release'"
 
 [tool.pytest.ini_options]
 # Pytest does not need to search these folders for test functions.
